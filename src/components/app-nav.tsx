@@ -15,9 +15,9 @@ export function AppNav() {
   const onToday = pathname === "/";
 
   return (
-    <nav className="sticky top-0 z-30 border-b border-zinc-800 bg-black/95 backdrop-blur">
-      <div className="mx-auto max-w-2xl space-y-3 px-4 py-3">
-        <div className="flex items-center gap-1">
+    <nav className="sticky top-0 z-30 border-b border-zinc-800 bg-black">
+      <div className="mx-auto flex max-w-2xl items-center gap-2 px-4 py-3">
+        <div className="flex shrink-0 items-center gap-1">
           {links.map((link) => {
             const active = pathname === link.href;
             return (
@@ -37,7 +37,7 @@ export function AppNav() {
         </div>
 
         {onToday && (
-          <Suspense fallback={<div className="h-10 animate-pulse rounded-xl bg-zinc-900" />}>
+          <Suspense fallback={<div className="h-9 min-w-0 flex-1 animate-pulse rounded-xl bg-zinc-900" />}>
             <DateNav />
           </Suspense>
         )}

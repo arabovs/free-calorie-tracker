@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { getPreviousWeight, updateProfile, upsertWeight } from "@/app/actions";
 import { ExerciseButtons } from "@/components/exercise-buttons";
 import { MacroPieCharts } from "@/components/macro-pie-charts";
 import { formatWeightChange } from "@/lib/month-summary";
+import { formatExerciseSummary } from "@/lib/exercise";
 import { formatNum } from "@/lib/nutrition";
 import type { ExerciseLog, NutritionTotals, Profile, WeightLog } from "@/lib/types";
 
@@ -20,6 +22,14 @@ function PersonIcon({ className }: { className?: string }) {
   );
 }
 
+function ActivityIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className={className} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 4.5L7 14h4l-1 5.5L17 10h-4l1-5.5z" />
+    </svg>
+  );
+}
+
 type Props = {
   date: string;
   calories: number;
@@ -30,6 +40,7 @@ type Props = {
   profile: Profile;
   weightLog: WeightLog | null;
   previousWeight: WeightLog | null;
+  latestWeightKg: number | null;
 };
 
 export function CalorieGoalSection({
@@ -42,7 +53,9 @@ export function CalorieGoalSection({
   profile,
   weightLog,
   previousWeight,
+  latestWeightKg,
 }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [height, setHeight] = useState(profile.height_cm?.toString() ?? "");
   const [weight, setWeight] = useState(weightLog?.weight_kg.toString() ?? "");
@@ -51,6 +64,11 @@ export function CalorieGoalSection({
   const [weightChange, setWeightChange] = useState<number | null>(
     weightLog && previousWeight ? weightLog.weight_kg - previousWeight.weight_kg : null,
   );
+  const [proteinWeightKg, setProteinWeightKg] = useState<number | null>(latestWeightKg);
+
+  useEffect(() => {
+    setProteinWeightKg(latestWeightKg);
+  }, [latestWeightKg]);
 
   const effectiveGoal = goal + exerciseBurn;
   const pct = effectiveGoal > 0 ? Math.min((calories / effectiveGoal) * 100, 100) : 0;
@@ -98,7 +116,9 @@ export function CalorieGoalSection({
         await upsertWeight(date, kg);
         const prev = await getPreviousWeight(date);
         setWeightChange(prev ? kg - prev.weight_kg : null);
+        setProteinWeightKg(kg);
         setMessage("Weight saved");
+        router.refresh();
       } catch (e) {
         setMessage(e instanceof Error ? e.message : "Could not save weight");
       }
@@ -109,6 +129,9 @@ export function CalorieGoalSection({
     profile.height_cm && weightLog
       ? weightLog.weight_kg / (profile.height_cm / 100) ** 2
       : null;
+
+  const hasExercise = exercises.length > 0;
+  const exerciseSummary = formatExerciseSummary(exercises.map((log) => log.exercise_type));
 
   return (
     <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
@@ -125,6 +148,16 @@ export function CalorieGoalSection({
           <p className={`text-sm font-medium ${over ? "text-amber-400" : "text-emerald-400"}`}>
             {over ? `+${formatNum(calories - effectiveGoal)}` : formatNum(remaining)}
           </p>
+          {hasExercise && (
+            <span
+              className="relative rounded-xl border border-orange-600/60 bg-orange-950/40 p-2 text-orange-400"
+              title={`Exercised today: ${exerciseSummary}`}
+              aria-label={`Exercised today: ${exerciseSummary}`}
+            >
+              <ActivityIcon className="h-5 w-5" />
+              <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-orange-500" />
+            </span>
+          )}
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
@@ -162,7 +195,7 @@ export function CalorieGoalSection({
         )}
       </p>
 
-      <MacroPieCharts totals={totals} />
+      <MacroPieCharts totals={totals} weightKg={proteinWeightKg} />
 
       {open && (
         <div className="mt-4 border-t border-zinc-800 pt-4">

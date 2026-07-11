@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import {
   getEntries,
   getExercisesForDate,
+  getLatestWeightOnOrBefore,
   getPreviousWeight,
   getProfile,
   getSuggestedFoods,
@@ -31,6 +32,8 @@ async function TrackerContent({ date }: { date: string }) {
   let previousWeight = null;
   let exercises: ExerciseLog[] = [];
 
+  let latestWeight = null;
+
   try {
     const [suggestions, ...rest] = await Promise.all([
       getSuggestedFoods(),
@@ -39,8 +42,9 @@ async function TrackerContent({ date }: { date: string }) {
       getWeightForDate(date),
       getPreviousWeight(date),
       getExercisesForDate(date),
+      getLatestWeightOnOrBefore(date),
     ]);
-    [entries, profile, weightLog, previousWeight, exercises] = rest;
+    [entries, profile, weightLog, previousWeight, exercises, latestWeight] = rest;
     needsSetup = suggestions.length === 0;
   } catch {
     needsSetup = true;
@@ -63,8 +67,9 @@ async function TrackerContent({ date }: { date: string }) {
         profile={profile}
         weightLog={weightLog}
         previousWeight={previousWeight}
+        latestWeightKg={latestWeight?.weight_kg ?? null}
       />
-      <NutritionDashboard totals={totals} date={date} />
+      <NutritionDashboard totals={totals} />
       <FoodLogPanel
         date={date}
         entries={entries}

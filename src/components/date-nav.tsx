@@ -18,22 +18,22 @@ export function DateNav() {
   }
 
   return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5">
       <button
         type="button"
         onClick={() => shiftDays(-1)}
-        className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
+        className="shrink-0 rounded-lg border border-zinc-800 bg-zinc-950 px-2.5 py-1.5 text-sm text-zinc-300 hover:bg-zinc-900"
       >
         ←
       </button>
-      <div className="text-center">
-        <p className="font-semibold text-zinc-100">{label}</p>
-        {today && <p className="text-xs text-emerald-400">Today</p>}
+      <div className="min-w-0 text-center">
+        <p className="truncate text-sm font-semibold text-zinc-100">{label}</p>
+        {today && <p className="text-[10px] leading-tight text-emerald-400">Today</p>}
       </div>
       <button
         type="button"
         onClick={() => shiftDays(+1)}
-        className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-900"
+        className="shrink-0 rounded-lg border border-zinc-800 bg-zinc-950 px-2.5 py-1.5 text-sm text-zinc-300 hover:bg-zinc-900"
       >
         →
       </button>

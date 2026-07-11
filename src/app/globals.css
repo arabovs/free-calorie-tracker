@@ -17,12 +17,15 @@
 }
 
 html {
+  background-color: var(--background);
   color-scheme: dark;
+  min-height: 100%;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
+  min-height: 100dvh;
 }
 
 input[type="search"]::-webkit-search-cancel-button {

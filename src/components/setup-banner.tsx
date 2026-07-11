@@ -52,7 +52,7 @@ export function SetupBanner() {
       <div
         role="alertdialog"
         aria-labelledby="setup-banner-title"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-amber-900/40 bg-zinc-950/95 backdrop-blur"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-amber-900/40 bg-zinc-950"
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
         <div className="mx-auto max-w-2xl px-4 py-2.5">

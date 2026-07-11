@@ -102,6 +102,22 @@ export async function addCustomEntry(input: {
     custom_potassium_mg: input.custom.potassium_mg,
     custom_creatine_g: input.custom.creatine_g,
     custom_omega3_g: input.custom.omega3_g,
+    custom_vitamin_b1_mg: input.custom.vitamin_b1_mg,
+    custom_vitamin_b2_mg: input.custom.vitamin_b2_mg,
+    custom_vitamin_b6_mg: input.custom.vitamin_b6_mg,
+    custom_biotin_mcg: input.custom.biotin_mcg,
+    custom_vitamin_e_mg: input.custom.vitamin_e_mg,
+    custom_folate_mcg: input.custom.folate_mcg,
+    custom_vitamin_k_mcg: input.custom.vitamin_k_mcg,
+    custom_niacin_mg: input.custom.niacin_mg,
+    custom_pantothenate_mg: input.custom.pantothenate_mg,
+    custom_magnesium_mg: input.custom.magnesium_mg,
+    custom_phosphorus_mg: input.custom.phosphorus_mg,
+    custom_chromium_mcg: input.custom.chromium_mcg,
+    custom_iodine_mcg: input.custom.iodine_mcg,
+    custom_molybdenum_mcg: input.custom.molybdenum_mcg,
+    custom_selenium_mcg: input.custom.selenium_mcg,
+    custom_zinc_mg: input.custom.zinc_mg,
   });
 
   if (error) throw new Error(error.message);
@@ -255,6 +271,20 @@ export async function getWeightForDate(date: string): Promise<WeightLog | null> 
     .from("weight_logs")
     .select("*")
     .eq("logged_at", date)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function getLatestWeightOnOrBefore(date: string): Promise<WeightLog | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("weight_logs")
+    .select("*")
+    .lte("logged_at", date)
+    .order("logged_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error) throw new Error(error.message);

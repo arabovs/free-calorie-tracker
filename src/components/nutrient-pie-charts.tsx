@@ -65,6 +65,7 @@ export function NutrientPieChart({
   type,
   decimals = 0,
   colors = DEFAULT_COLORS,
+  hint,
 }: {
   label: string;
   current: number;
@@ -73,6 +74,7 @@ export function NutrientPieChart({
   type: "min" | "max";
   decimals?: number;
   colors?: NutrientColors;
+  hint?: string;
 }) {
   const pct = target > 0 ? (current / target) * 100 : 0;
   const displayPct = Math.min(pct, 100);
@@ -110,6 +112,7 @@ export function NutrientPieChart({
       <span className="max-w-full truncate text-center text-[10px] font-medium text-zinc-400 sm:text-xs">
         {label}
       </span>
+      {hint && <span className="text-[9px] text-zinc-600">{hint}</span>}
       <span className="text-center text-[10px] leading-tight text-zinc-500">
         <span className={valueClassForStatus(type, pct)}>{formatNum(current, decimals)}</span>
         <span className="text-zinc-600">
@@ -146,6 +149,7 @@ export function NutrientPieGrid({
             unit={target.unit}
             type={target.type}
             decimals={target.decimals}
+            hint={target.hint}
             colors={NUTRIENT_COLORS[target.key] ?? DEFAULT_COLORS}
           />
         ))}

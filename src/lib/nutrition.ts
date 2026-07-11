@@ -1,6 +1,14 @@
 import type { CustomEntryInput, Entry, Food, NutritionTotals } from "./types";
 import { EMPTY_TOTALS } from "./types";
 
+function sumTotals(a: NutritionTotals, b: NutritionTotals): NutritionTotals {
+  const out = { ...a };
+  for (const key of Object.keys(EMPTY_TOTALS) as (keyof NutritionTotals)[]) {
+    out[key] = a[key] + b[key];
+  }
+  return out;
+}
+
 export function scaleFood(food: Food, quantity: number): NutritionTotals {
   const factor = quantity / food.serving_size;
 
@@ -22,29 +30,27 @@ export function scaleFood(food: Food, quantity: number): NutritionTotals {
     potassium_mg: food.potassium_mg * factor,
     creatine_g: 0,
     omega3_g: 0,
+    vitamin_b1_mg: 0,
+    vitamin_b2_mg: 0,
+    vitamin_b6_mg: 0,
+    biotin_mcg: 0,
+    vitamin_e_mg: 0,
+    folate_mcg: 0,
+    vitamin_k_mcg: 0,
+    niacin_mg: 0,
+    pantothenate_mg: 0,
+    magnesium_mg: 0,
+    phosphorus_mg: 0,
+    chromium_mcg: 0,
+    iodine_mcg: 0,
+    molybdenum_mcg: 0,
+    selenium_mcg: 0,
+    zinc_mg: 0,
   };
 }
 
 export function customToNutrition(custom: CustomEntryInput): NutritionTotals {
-  return {
-    calories: custom.calories,
-    protein_g: custom.protein_g,
-    carbs_g: custom.carbs_g,
-    fat_g: custom.fat_g,
-    saturated_fat_g: custom.saturated_fat_g,
-    fiber_g: custom.fiber_g,
-    sugar_g: custom.sugar_g,
-    sodium_mg: custom.sodium_mg,
-    vitamin_a_mcg: custom.vitamin_a_mcg,
-    vitamin_c_mg: custom.vitamin_c_mg,
-    vitamin_d_mcg: custom.vitamin_d_mcg,
-    vitamin_b12_mcg: custom.vitamin_b12_mcg,
-    iron_mg: custom.iron_mg,
-    calcium_mg: custom.calcium_mg,
-    potassium_mg: custom.potassium_mg,
-    creatine_g: custom.creatine_g,
-    omega3_g: custom.omega3_g,
-  };
+  return { ...custom };
 }
 
 export function entryNutrition(entry: Entry): NutritionTotals | null {
@@ -68,6 +74,22 @@ export function entryNutrition(entry: Entry): NutritionTotals | null {
       potassium_mg: entry.custom_potassium_mg ?? 0,
       creatine_g: entry.custom_creatine_g ?? 0,
       omega3_g: entry.custom_omega3_g ?? 0,
+      vitamin_b1_mg: entry.custom_vitamin_b1_mg ?? 0,
+      vitamin_b2_mg: entry.custom_vitamin_b2_mg ?? 0,
+      vitamin_b6_mg: entry.custom_vitamin_b6_mg ?? 0,
+      biotin_mcg: entry.custom_biotin_mcg ?? 0,
+      vitamin_e_mg: entry.custom_vitamin_e_mg ?? 0,
+      folate_mcg: entry.custom_folate_mcg ?? 0,
+      vitamin_k_mcg: entry.custom_vitamin_k_mcg ?? 0,
+      niacin_mg: entry.custom_niacin_mg ?? 0,
+      pantothenate_mg: entry.custom_pantothenate_mg ?? 0,
+      magnesium_mg: entry.custom_magnesium_mg ?? 0,
+      phosphorus_mg: entry.custom_phosphorus_mg ?? 0,
+      chromium_mcg: entry.custom_chromium_mcg ?? 0,
+      iodine_mcg: entry.custom_iodine_mcg ?? 0,
+      molybdenum_mcg: entry.custom_molybdenum_mcg ?? 0,
+      selenium_mcg: entry.custom_selenium_mcg ?? 0,
+      zinc_mg: entry.custom_zinc_mg ?? 0,
     });
   }
 
@@ -82,26 +104,7 @@ export function sumNutrition(entries: Entry[]): NutritionTotals {
   return entries.reduce((totals, entry) => {
     const nutrition = entryNutrition(entry);
     if (!nutrition) return totals;
-
-    return {
-      calories: totals.calories + nutrition.calories,
-      protein_g: totals.protein_g + nutrition.protein_g,
-      carbs_g: totals.carbs_g + nutrition.carbs_g,
-      fat_g: totals.fat_g + nutrition.fat_g,
-      saturated_fat_g: totals.saturated_fat_g + nutrition.saturated_fat_g,
-      fiber_g: totals.fiber_g + nutrition.fiber_g,
-      sugar_g: totals.sugar_g + nutrition.sugar_g,
-      sodium_mg: totals.sodium_mg + nutrition.sodium_mg,
-      vitamin_a_mcg: totals.vitamin_a_mcg + nutrition.vitamin_a_mcg,
-      vitamin_c_mg: totals.vitamin_c_mg + nutrition.vitamin_c_mg,
-      vitamin_d_mcg: totals.vitamin_d_mcg + nutrition.vitamin_d_mcg,
-      vitamin_b12_mcg: totals.vitamin_b12_mcg + nutrition.vitamin_b12_mcg,
-      iron_mg: totals.iron_mg + nutrition.iron_mg,
-      calcium_mg: totals.calcium_mg + nutrition.calcium_mg,
-      potassium_mg: totals.potassium_mg + nutrition.potassium_mg,
-      creatine_g: totals.creatine_g + nutrition.creatine_g,
-      omega3_g: totals.omega3_g + nutrition.omega3_g,
-    };
+    return sumTotals(totals, nutrition);
   }, { ...EMPTY_TOTALS });
 }
 

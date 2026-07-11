@@ -5,6 +5,8 @@ import { addCustomEntry, addEntry, deleteEntry, resetDay, searchFoods } from "@/
 import { foodSummary } from "@/lib/seed-foods";
 import { entryLabel, entryNutrition, formatNum, scaleFood } from "@/lib/nutrition";
 import type { Entry, Food, Meal } from "@/lib/types";
+import { EMPTY_TOTALS } from "@/lib/types";
+import { SupplementButtons } from "@/components/supplement-buttons";
 
 const MEALS: Meal[] = ["breakfast", "lunch", "dinner", "snack"];
 
@@ -168,6 +170,7 @@ export function FoodLogPanel({ date, entries, hasActivity }: Props) {
       try {
         await addCustomEntry({
           custom: {
+            ...EMPTY_TOTALS,
             name,
             calories,
             protein_g: parseOptional(custom.protein_g),
@@ -257,6 +260,12 @@ export function FoodLogPanel({ date, entries, hasActivity }: Props) {
           </div>
         )}
       </div>
+
+      {tab === "add" && (
+        <div className="mb-3">
+          <SupplementButtons date={date} />
+        </div>
+      )}
 
       {tab === "add" ? (
         mode === "search" ? (
