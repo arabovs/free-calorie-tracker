@@ -51,7 +51,7 @@ const ICONS: Record<SupplementId, typeof PillIcon> = {
 const DISPLAY: Record<SupplementId, { label: string; amount: string }> = {
   creatine: { label: "Creatine", amount: "5g" },
   multivitamin: { label: "Multi", amount: "+5" },
-  protein_shake: { label: "Shake", amount: "+120" },
+  protein_shake: { label: "Gainer", amount: "1 scoop" },
   omega3: { label: "Omega-3", amount: "0.5g" },
 };
 

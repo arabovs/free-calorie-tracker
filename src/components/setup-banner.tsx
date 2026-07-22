@@ -26,10 +26,19 @@ function ChevronIcon({ className, open }: { className?: string; open: boolean })
   );
 }
 
-export function SetupBanner() {
+type Props = {
+  missing: number;
+  seedCount: number;
+  empty: boolean;
+};
+
+export function SetupBanner({ missing, seedCount, empty }: Props) {
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  if (done || (!empty && missing <= 0)) return null;
 
   function handleSeed() {
     startTransition(async () => {
@@ -37,14 +46,22 @@ export function SetupBanner() {
         const result = await seedFoods();
         setMessage(
           result.added > 0
-            ? `Added ${result.added} foods (${result.total} total).`
+            ? `Added ${result.added} foods (${result.total} total). Search again!`
             : `All ${result.total} foods already loaded.`,
         );
+        if (result.missing === 0) {
+          setDone(true);
+          window.setTimeout(() => window.location.reload(), 800);
+        }
       } catch (e) {
         setMessage(e instanceof Error ? e.message : "Setup failed");
       }
     });
   }
+
+  const title = empty
+    ? "Database not ready — sync foods to continue"
+    : `${missing} new foods ready to sync (KFC, McD’s, meals…)`;
 
   return (
     <>
@@ -65,7 +82,7 @@ export function SetupBanner() {
               aria-expanded={open}
             >
               <p id="setup-banner-title" className="truncate text-sm text-amber-200">
-                {message ?? "Database not ready — sync foods to continue"}
+                {message ?? title}
               </p>
             </button>
             <button
@@ -79,19 +96,18 @@ export function SetupBanner() {
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
-              aria-label={open ? "Hide setup details" : "Show setup details"}
               className="shrink-0 rounded-lg p-1 text-amber-500/70 hover:bg-zinc-900 hover:text-amber-400"
+              aria-label={open ? "Hide details" : "Show details"}
             >
               <ChevronIcon className="h-4 w-4" open={open} />
             </button>
           </div>
-
           {open && (
-            <p className="mt-2 border-t border-amber-900/30 pt-2 text-xs leading-relaxed text-amber-400/70">
-              Run the SQL in{" "}
-              <code className="rounded bg-zinc-900 px-1 text-amber-200">supabase/schema.sql</code>, add env vars to{" "}
-              <code className="rounded bg-zinc-900 px-1 text-amber-200">.env.local</code>, then tap Sync. Re-sync
-              anytime to add new seed foods.
+            <p className="mt-2 text-xs leading-relaxed text-amber-200/70">
+              Food search reads from Supabase. Tap Sync to load the full catalog ({seedCount} items), including
+              chicken burgers, carbonara, KFC, McDonald&apos;s, and more. Run{" "}
+              <code className="rounded bg-zinc-900 px-1 text-amber-200">supabase/schema.sql</code> if tables are
+              missing.
             </p>
           )}
         </div>

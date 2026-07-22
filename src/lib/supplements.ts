@@ -83,14 +83,10 @@ export const CREATINE_DOSE: CustomEntryInput = {
 
 export const PROTEIN_SHAKE: CustomEntryInput = {
   ...emptyMacros,
-  name: "Whey protein shake",
-  calories: 120,
-  protein_g: 24,
-  carbs_g: 3,
-  fat_g: 1.5,
-  sugar_g: 2,
-  sodium_mg: 130,
-  calcium_mg: 120,
+  name: "Gainer shake (1 scoop)",
+  calories: 180,
+  protein_g: 12.4,
+  carbs_g: 32.5,
 };
 
 /** Typical 1000mg fish oil softgel, ~500mg EPA+DHA combined. */
@@ -117,8 +113,8 @@ export const SUPPLEMENTS: SupplementPreset[] = [
   },
   {
     id: "protein_shake",
-    label: "+ 1 protein shake",
-    summary: "24g protein · ~120 kcal",
+    label: "+ 1 gainer scoop",
+    summary: "12.4g protein · 32.5g carbs · ~180 kcal",
     preset: PROTEIN_SHAKE,
   },
   {

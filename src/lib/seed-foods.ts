@@ -1,8 +1,10 @@
 import type { Food } from "./types";
+import { CATALOG_SEED_FOODS } from "./seed-foods-catalog";
+import { BULGARIAN_SEED_FOODS } from "./seed-foods-bulgarian";
 
 type SeedFood = Omit<Food, "id">;
 
-export const SEED_FOODS: SeedFood[] = [
+const BASE_SEED_FOODS: SeedFood[] = [
   {
     name: "Egg (large)",
     serving_size: 1,
@@ -1777,6 +1779,24 @@ export const SEED_FOODS: SeedFood[] = [
     potassium_mg: 120,
   },
 ];
+
+function dedupeFoods(foods: SeedFood[]): SeedFood[] {
+  const seen = new Set<string>();
+  const out: SeedFood[] = [];
+  for (const food of foods) {
+    const key = food.name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(food);
+  }
+  return out;
+}
+
+export const SEED_FOODS: SeedFood[] = dedupeFoods([
+  ...BASE_SEED_FOODS,
+  ...CATALOG_SEED_FOODS,
+  ...BULGARIAN_SEED_FOODS,
+]);
 
 export function foodSummary(food: Pick<Food, "name" | "calories" | "protein_g" | "serving_size" | "serving_unit">) {
   return `${food.calories} kcal · ${food.protein_g}g protein per ${food.serving_size} ${food.serving_unit}`;

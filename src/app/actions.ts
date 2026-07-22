@@ -56,10 +56,13 @@ export async function searchFoods(query: string): Promise<Food[]> {
   const supabase = await createClient();
   const trimmed = query.trim();
 
-  let builder = supabase.from("foods").select("*").order("name").limit(8);
+  let builder = supabase.from("foods").select("*").order("name").limit(20);
 
   if (trimmed) {
-    builder = builder.ilike("name", `%${trimmed}%`);
+    // Match each word so "chicken burger" finds "Nando's Chicken Burger"
+    for (const word of trimmed.split(/\s+/).filter(Boolean)) {
+      builder = builder.ilike("name", `%${word}%`);
+    }
   }
 
   const { data, error } = await builder;
@@ -237,24 +240,77 @@ export async function resetDay(date: string) {
   revalidateAll();
 }
 
-export async function seedFoods() {
+async function fetchAllFoodNames(): Promise<string[]> {
   const supabase = await createClient();
+  const pageSize = 1000;
+  const names: string[] = [];
 
-  const { data: existing, error: fetchError } = await supabase.from("foods").select("name");
-  if (fetchError) throw new Error(fetchError.message);
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("foods")
+      .select("name")
+      .order("name")
+      .range(from, from + pageSize - 1);
 
-  const existingNames = new Set((existing ?? []).map((food) => food.name.toLowerCase()));
+    if (error) throw new Error(error.message);
+    if (!data?.length) break;
+
+    for (const row of data) names.push(row.name);
+    if (data.length < pageSize) break;
+  }
+
+  return names;
+}
+
+export async function seedFoods() {
+  const existing = await fetchAllFoodNames();
+  const existingNames = new Set(existing.map((name) => name.toLowerCase()));
   const toInsert = SEED_FOODS.filter((food) => !existingNames.has(food.name.toLowerCase()));
 
   if (toInsert.length === 0) {
-    return { seeded: false, added: 0, total: existing?.length ?? 0 };
+    return { seeded: false, added: 0, total: existing.length, missing: 0 };
   }
 
-  const { error } = await supabase.from("foods").insert(toInsert);
-  if (error) throw new Error(error.message);
+  const supabase = await createClient();
+  const BATCH = 100;
+  let added = 0;
+  for (let i = 0; i < toInsert.length; i += BATCH) {
+    const chunk = toInsert.slice(i, i + BATCH);
+    const { error } = await supabase.from("foods").insert(chunk);
+    if (error) throw new Error(error.message);
+    added += chunk.length;
+  }
 
   revalidateAll();
-  return { seeded: true, added: toInsert.length, total: (existing?.length ?? 0) + toInsert.length };
+
+  const after = await fetchAllFoodNames();
+  const afterNames = new Set(after.map((name) => name.toLowerCase()));
+  const missing = SEED_FOODS.reduce(
+    (count, food) => count + (afterNames.has(food.name.toLowerCase()) ? 0 : 1),
+    0,
+  );
+
+  return {
+    seeded: true,
+    added,
+    total: after.length,
+    missing,
+  };
+}
+
+export async function getFoodCatalogStatus() {
+  const names = await fetchAllFoodNames();
+  const existingNames = new Set(names.map((name) => name.toLowerCase()));
+  const missing = SEED_FOODS.reduce(
+    (count, food) => count + (existingNames.has(food.name.toLowerCase()) ? 0 : 1),
+    0,
+  );
+
+  return {
+    dbCount: names.length,
+    seedCount: SEED_FOODS.length,
+    missing,
+  };
 }
 
 export async function getSuggestedFoods(): Promise<Food[]> {

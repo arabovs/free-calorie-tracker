@@ -3,10 +3,10 @@ import { redirect } from "next/navigation";
 import {
   getEntries,
   getExercisesForDate,
+  getFoodCatalogStatus,
   getLatestWeightOnOrBefore,
   getPreviousWeight,
   getProfile,
-  getSuggestedFoods,
   getWeightForDate,
 } from "@/app/actions";
 import { getActiveUserId } from "@/lib/active-user";
@@ -28,6 +28,9 @@ type Props = {
 async function TrackerContent({ date }: { date: string }) {
   let entries: Entry[] = [];
   let needsSetup = false;
+  let missingFoods = 0;
+  let seedCount = 0;
+  let dbEmpty = true;
 
   let profile = {
     user_id: "sim",
@@ -41,8 +44,8 @@ async function TrackerContent({ date }: { date: string }) {
   let latestWeight = null;
 
   try {
-    const [suggestions, ...rest] = await Promise.all([
-      getSuggestedFoods(),
+    const [catalog, ...rest] = await Promise.all([
+      getFoodCatalogStatus(),
       getEntries(date),
       getProfile(),
       getWeightForDate(date),
@@ -51,9 +54,13 @@ async function TrackerContent({ date }: { date: string }) {
       getLatestWeightOnOrBefore(date),
     ]);
     [entries, profile, weightLog, previousWeight, exercises, latestWeight] = rest;
-    needsSetup = suggestions.length === 0;
+    missingFoods = catalog.missing;
+    seedCount = catalog.seedCount;
+    dbEmpty = catalog.dbCount === 0;
+    needsSetup = dbEmpty || missingFoods > 0;
   } catch {
     needsSetup = true;
+    dbEmpty = true;
   }
 
   const totals = sumNutrition(entries);
@@ -61,7 +68,7 @@ async function TrackerContent({ date }: { date: string }) {
 
   return (
     <div
-      className={`mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6 ${needsSetup ? "pb-4 md:pb-6" : "pb-28 md:pb-6"}`}
+      className={`mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-6 ${needsSetup ? "pb-28 md:pb-6" : "pb-4 md:pb-6"}`}
     >
       <CalorieGoalSection
         date={date}
@@ -82,7 +89,9 @@ async function TrackerContent({ date }: { date: string }) {
         hasActivity={entries.length > 0 || exercises.length > 0}
       />
 
-      {needsSetup && <SetupBanner />}
+      {needsSetup && (
+        <SetupBanner missing={missingFoods} seedCount={seedCount} empty={dbEmpty} />
+      )}
     </div>
   );
 }
