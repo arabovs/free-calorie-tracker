@@ -32,10 +32,18 @@ export function todayISO() {
 }
 
 export function formatDisplayDate(isoDate: string) {
+  const { weekday, dayMonth } = formatDateParts(isoDate);
+  return `${weekday} ${dayMonth}`;
+}
+
+export function formatDateParts(isoDate: string) {
   const [year, month, day] = isoDate.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
 
-  return `${WEEKDAYS[date.getUTCDay()]} ${day} ${MONTHS[month - 1]}`;
+  return {
+    weekday: WEEKDAYS[date.getUTCDay()],
+    dayMonth: `${day} ${MONTHS[month - 1]}`,
+  };
 }
 
 export function shiftISODate(isoDate: string, offsetDays: number) {

@@ -36,6 +36,9 @@ async function TrackerContent({ date }: { date: string }) {
     user_id: "sim",
     height_cm: null as number | null,
     daily_calorie_goal: 2500,
+    gender: null as "male" | "female" | null,
+    age_years: null as number | null,
+    weight_goal: null as "maintain" | "lose" | "gain" | null,
   };
   let weightLog = null;
   let previousWeight = null;

@@ -6,7 +6,7 @@ import { requireActiveUserId } from "@/lib/active-user";
 import { createClient } from "@/lib/supabase/server";
 import { SEED_FOODS } from "@/lib/seed-foods";
 import { getSupplementPreset, type SupplementId } from "@/lib/supplements";
-import type { CustomEntryInput, Entry, ExerciseLog, ExerciseType, Food, Meal, MonthSummary, Profile, WeightLog } from "@/lib/types";
+import type { CustomEntryInput, Entry, ExerciseLog, ExerciseType, Food, Gender, Meal, MonthSummary, Profile, WeightGoal, WeightLog } from "@/lib/types";
 import { buildMonthSummary } from "@/lib/month-summary";
 import { getExerciseOption } from "@/lib/exercise";
 import { monthRange } from "@/lib/dates";
@@ -469,17 +469,29 @@ export async function getProfile(): Promise<Profile> {
       user_id: userId,
       height_cm: null,
       daily_calorie_goal: (await getAppUser(userId))?.defaultCalorieGoal ?? getSeedUser(userId)?.defaultCalorieGoal ?? 2500,
+      gender: null,
+      age_years: null,
+      weight_goal: null,
     }
   );
 }
 
-export async function updateProfile(input: { height_cm?: number | null; daily_calorie_goal?: number }) {
+export async function updateProfile(input: {
+  height_cm?: number | null;
+  daily_calorie_goal?: number;
+  gender?: Gender | null;
+  age_years?: number | null;
+  weight_goal?: WeightGoal | null;
+}) {
   const supabase = await createClient();
   const userId = await requireActiveUserId();
 
   const payload: Record<string, number | null | string> = { user_id: userId };
   if (input.height_cm !== undefined) payload.height_cm = input.height_cm;
   if (input.daily_calorie_goal !== undefined) payload.daily_calorie_goal = input.daily_calorie_goal;
+  if (input.gender !== undefined) payload.gender = input.gender;
+  if (input.age_years !== undefined) payload.age_years = input.age_years;
+  if (input.weight_goal !== undefined) payload.weight_goal = input.weight_goal;
 
   const { error } = await supabase.from("profile").upsert(payload, { onConflict: "user_id" });
   if (error) throw new Error(error.message);

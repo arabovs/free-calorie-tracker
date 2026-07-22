@@ -81,6 +81,9 @@ create table if not exists profile (
   user_id text primary key,
   height_cm numeric,
   daily_calorie_goal numeric not null default 2500,
+  gender text check (gender is null or gender in ('male', 'female')),
+  age_years numeric,
+  weight_goal text check (weight_goal is null or weight_goal in ('maintain', 'lose', 'gain')),
   updated_at timestamptz not null default now()
 );
 

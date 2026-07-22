@@ -141,10 +141,16 @@ export const EMPTY_TOTALS: NutritionTotals = {
   zinc_mg: 0,
 };
 
+export type Gender = "male" | "female";
+export type WeightGoal = "maintain" | "lose" | "gain";
+
 export type Profile = {
   user_id: string;
   height_cm: number | null;
   daily_calorie_goal: number;
+  gender: Gender | null;
+  age_years: number | null;
+  weight_goal: WeightGoal | null;
 };
 
 export type WeightLog = {
