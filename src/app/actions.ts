@@ -1,6 +1,8 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { requireActiveUserId } from "@/lib/active-user";
 import { createClient } from "@/lib/supabase/server";
 import { SEED_FOODS } from "@/lib/seed-foods";
 import { getSupplementPreset, type SupplementId } from "@/lib/supplements";
@@ -8,8 +10,9 @@ import type { CustomEntryInput, Entry, ExerciseLog, ExerciseType, Food, Meal, Mo
 import { buildMonthSummary } from "@/lib/month-summary";
 import { getExerciseOption } from "@/lib/exercise";
 import { monthRange } from "@/lib/dates";
+import { ACTIVE_USER_COOKIE, getUser, isAppUserId } from "@/lib/users";
 
-const REVALIDATE_PATHS = ["/", "/summary"];
+const REVALIDATE_PATHS = ["/", "/today", "/summary"];
 
 function revalidateAll() {
   for (const path of REVALIDATE_PATHS) {
@@ -17,12 +20,27 @@ function revalidateAll() {
   }
 }
 
+export async function setActiveUser(userId: string) {
+  if (!isAppUserId(userId)) throw new Error("Unknown user");
+
+  const store = await cookies();
+  store.set(ACTIVE_USER_COOKIE, userId, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+  });
+
+  revalidateAll();
+}
+
 export async function getEntries(date: string): Promise<Entry[]> {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
 
   const { data, error } = await supabase
     .from("entries")
     .select("*, food:foods(*)")
+    .eq("user_id", userId)
     .eq("logged_at", date)
     .order("created_at", { ascending: false });
 
@@ -57,8 +75,10 @@ export async function addEntry(input: {
   notes?: string;
 }) {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
 
   const { error } = await supabase.from("entries").insert({
+    user_id: userId,
     food_id: input.foodId,
     quantity: input.quantity,
     meal: input.meal,
@@ -77,8 +97,10 @@ export async function addCustomEntry(input: {
   notes?: string;
 }) {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
 
   const { error } = await supabase.from("entries").insert({
+    user_id: userId,
     food_id: null,
     quantity: 1,
     meal: input.meal,
@@ -134,9 +156,11 @@ export async function addSupplement(date: string, supplementId: SupplementId) {
 
 export async function getExercisesForDate(date: string): Promise<ExerciseLog[]> {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
   const { data, error } = await supabase
     .from("exercise_logs")
     .select("*")
+    .eq("user_id", userId)
     .eq("logged_at", date)
     .order("exercise_type");
 
@@ -146,11 +170,13 @@ export async function getExercisesForDate(date: string): Promise<ExerciseLog[]> 
 
 export async function toggleExercise(date: string, exerciseType: ExerciseType) {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
   const option = getExerciseOption(exerciseType);
 
   const { data: existing, error: fetchError } = await supabase
     .from("exercise_logs")
     .select("id")
+    .eq("user_id", userId)
     .eq("logged_at", date)
     .eq("exercise_type", exerciseType)
     .maybeSingle();
@@ -162,6 +188,7 @@ export async function toggleExercise(date: string, exerciseType: ExerciseType) {
     if (error) throw new Error(error.message);
   } else {
     const { error } = await supabase.from("exercise_logs").insert({
+      user_id: userId,
       logged_at: date,
       exercise_type: exerciseType,
       calories_burned: option.calories_burned,
@@ -174,9 +201,11 @@ export async function toggleExercise(date: string, exerciseType: ExerciseType) {
 
 export async function getExercisesForRange(start: string, end: string): Promise<ExerciseLog[]> {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
   const { data, error } = await supabase
     .from("exercise_logs")
     .select("*")
+    .eq("user_id", userId)
     .gte("logged_at", start)
     .lte("logged_at", end)
     .order("logged_at", { ascending: true });
@@ -187,17 +216,19 @@ export async function getExercisesForRange(start: string, end: string): Promise<
 
 export async function deleteEntry(id: string) {
   const supabase = await createClient();
-  const { error } = await supabase.from("entries").delete().eq("id", id);
+  const userId = await requireActiveUserId();
+  const { error } = await supabase.from("entries").delete().eq("id", id).eq("user_id", userId);
   if (error) throw new Error(error.message);
   revalidateAll();
 }
 
 export async function resetDay(date: string) {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
 
   const [entriesResult, exerciseResult] = await Promise.all([
-    supabase.from("entries").delete().eq("logged_at", date),
-    supabase.from("exercise_logs").delete().eq("logged_at", date),
+    supabase.from("entries").delete().eq("user_id", userId).eq("logged_at", date),
+    supabase.from("exercise_logs").delete().eq("user_id", userId).eq("logged_at", date),
   ]);
 
   if (entriesResult.error) throw new Error(entriesResult.error.message);
@@ -240,36 +271,40 @@ export async function getSuggestedFoods(): Promise<Food[]> {
 
 export async function getProfile(): Promise<Profile> {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("profile").select("*").eq("id", 1).maybeSingle();
+  const userId = await requireActiveUserId();
+  const { data, error } = await supabase.from("profile").select("*").eq("user_id", userId).maybeSingle();
 
   if (error) throw new Error(error.message);
 
   return (
     data ?? {
-      id: 1,
+      user_id: userId,
       height_cm: null,
-      daily_calorie_goal: 2500,
+      daily_calorie_goal: getUser(userId).defaultCalorieGoal,
     }
   );
 }
 
 export async function updateProfile(input: { height_cm?: number | null; daily_calorie_goal?: number }) {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
 
-  const payload: Record<string, number | null> = {};
+  const payload: Record<string, number | null | string> = { user_id: userId };
   if (input.height_cm !== undefined) payload.height_cm = input.height_cm;
   if (input.daily_calorie_goal !== undefined) payload.daily_calorie_goal = input.daily_calorie_goal;
 
-  const { error } = await supabase.from("profile").upsert({ id: 1, ...payload });
+  const { error } = await supabase.from("profile").upsert(payload, { onConflict: "user_id" });
   if (error) throw new Error(error.message);
   revalidateAll();
 }
 
 export async function getWeightForDate(date: string): Promise<WeightLog | null> {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
   const { data, error } = await supabase
     .from("weight_logs")
     .select("*")
+    .eq("user_id", userId)
     .eq("logged_at", date)
     .maybeSingle();
 
@@ -279,9 +314,11 @@ export async function getWeightForDate(date: string): Promise<WeightLog | null> 
 
 export async function getLatestWeightOnOrBefore(date: string): Promise<WeightLog | null> {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
   const { data, error } = await supabase
     .from("weight_logs")
     .select("*")
+    .eq("user_id", userId)
     .lte("logged_at", date)
     .order("logged_at", { ascending: false })
     .limit(1)
@@ -293,9 +330,11 @@ export async function getLatestWeightOnOrBefore(date: string): Promise<WeightLog
 
 export async function getPreviousWeight(date: string): Promise<WeightLog | null> {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
   const { data, error } = await supabase
     .from("weight_logs")
     .select("*")
+    .eq("user_id", userId)
     .lt("logged_at", date)
     .order("logged_at", { ascending: false })
     .limit(1)
@@ -307,9 +346,10 @@ export async function getPreviousWeight(date: string): Promise<WeightLog | null>
 
 export async function upsertWeight(date: string, weight_kg: number) {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
   const { error } = await supabase.from("weight_logs").upsert(
-    { logged_at: date, weight_kg },
-    { onConflict: "logged_at" },
+    { user_id: userId, logged_at: date, weight_kg },
+    { onConflict: "user_id,logged_at" },
   );
   if (error) throw new Error(error.message);
   revalidateAll();
@@ -317,9 +357,11 @@ export async function upsertWeight(date: string, weight_kg: number) {
 
 export async function getEntriesForRange(start: string, end: string): Promise<Entry[]> {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
   const { data, error } = await supabase
     .from("entries")
     .select("*, food:foods(*)")
+    .eq("user_id", userId)
     .gte("logged_at", start)
     .lte("logged_at", end)
     .order("logged_at", { ascending: true });
@@ -334,9 +376,11 @@ export async function getEntriesForRange(start: string, end: string): Promise<En
 
 export async function getAllWeightLogs(): Promise<WeightLog[]> {
   const supabase = await createClient();
+  const userId = await requireActiveUserId();
   const { data, error } = await supabase
     .from("weight_logs")
     .select("*")
+    .eq("user_id", userId)
     .order("logged_at", { ascending: true });
 
   if (error) throw new Error(error.message);

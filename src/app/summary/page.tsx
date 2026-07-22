@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { getMonthSummary } from "@/app/actions";
+import { getActiveUserId } from "@/lib/active-user";
 import { currentYearMonth, parseYearMonth } from "@/lib/dates";
 import { MonthSummaryView } from "@/components/month-summary";
 
@@ -16,6 +18,9 @@ async function SummaryContent({ monthParam }: { monthParam?: string }) {
 }
 
 export default async function SummaryPage({ searchParams }: Props) {
+  const activeUserId = await getActiveUserId();
+  if (!activeUserId) redirect("/");
+
   const params = await searchParams;
 
   return (

@@ -65,6 +65,7 @@ create table if not exists entries (
   custom_molybdenum_mcg numeric,
   custom_selenium_mcg numeric,
   custom_zinc_mg numeric,
+  user_id text not null default 'sim',
   created_at timestamptz not null default now(),
   check (
     (food_id is not null and custom_name is null)
@@ -74,32 +75,39 @@ create table if not exists entries (
 
 create index if not exists foods_name_idx on foods using gin (name gin_trgm_ops);
 create index if not exists entries_logged_at_idx on entries (logged_at desc);
+create index if not exists entries_user_logged_at_idx on entries (user_id, logged_at desc);
 
 create table if not exists profile (
-  id int primary key default 1 check (id = 1),
+  user_id text primary key,
   height_cm numeric,
   daily_calorie_goal numeric not null default 2500,
   updated_at timestamptz not null default now()
 );
 
-insert into profile (id) values (1) on conflict (id) do nothing;
+insert into profile (user_id, daily_calorie_goal) values
+  ('sim', 2500),
+  ('babait', 2000)
+on conflict (user_id) do nothing;
 
 create table if not exists weight_logs (
   id uuid primary key default gen_random_uuid(),
-  logged_at date not null unique,
+  user_id text not null default 'sim',
+  logged_at date not null,
   weight_kg numeric not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  unique (user_id, logged_at)
 );
 
 create index if not exists weight_logs_logged_at_idx on weight_logs (logged_at desc);
 
 create table if not exists exercise_logs (
   id uuid primary key default gen_random_uuid(),
+  user_id text not null default 'sim',
   logged_at date not null,
   exercise_type text not null check (exercise_type in ('walk', 'low', 'medium', 'hard')),
   calories_burned numeric not null default 0,
   created_at timestamptz not null default now(),
-  unique (logged_at, exercise_type)
+  unique (user_id, logged_at, exercise_type)
 );
 
 create index if not exists exercise_logs_logged_at_idx on exercise_logs (logged_at desc);

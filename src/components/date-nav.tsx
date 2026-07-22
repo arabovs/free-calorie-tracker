@@ -14,7 +14,7 @@ export function DateNav() {
     const next = shiftISODate(date, offset);
     const params = new URLSearchParams(searchParams.toString());
     params.set("date", next);
-    router.push(`/?${params.toString()}`);
+    router.push(`/today?${params.toString()}`);
   }
 
   return (

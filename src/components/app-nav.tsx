@@ -1,18 +1,25 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 import { DateNav } from "@/components/date-nav";
+import { getUser, type AppUserId } from "@/lib/users";
 
 const links = [
-  { href: "/", label: "Today" },
+  { href: "/today", label: "Today" },
   { href: "/summary", label: "Summary" },
 ];
 
-export function AppNav() {
+type Props = {
+  activeUserId: AppUserId;
+};
+
+export function AppNav({ activeUserId }: Props) {
   const pathname = usePathname();
-  const onToday = pathname === "/";
+  const onToday = pathname === "/today";
+  const user = getUser(activeUserId);
 
   return (
     <nav className="sticky top-0 z-30 border-b border-zinc-800 bg-black">
@@ -24,7 +31,7 @@ export function AppNav() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   active
                     ? "bg-zinc-900 text-emerald-400"
                     : "text-zinc-500 hover:bg-zinc-950 hover:text-zinc-300"
@@ -41,6 +48,22 @@ export function AppNav() {
             <DateNav />
           </Suspense>
         )}
+
+        <Link
+          href="/"
+          className="ml-auto shrink-0 overflow-hidden rounded-full ring-2 ring-emerald-500 ring-offset-2 ring-offset-black"
+          aria-label={`Signed in as ${user.name}. Switch user`}
+          title={`Switch user (${user.name})`}
+        >
+          <Image
+            src={user.avatarSrc}
+            alt={user.name}
+            width={36}
+            height={36}
+            className="h-9 w-9 object-cover"
+            priority
+          />
+        </Link>
       </div>
     </nav>
   );

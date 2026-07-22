@@ -107,7 +107,7 @@ export function MonthSummaryView({ summary }: Props) {
             {activeDays.map((day) => (
               <li key={day.date}>
                 <Link
-                  href={`/?date=${day.date}`}
+                  href={`/today?date=${day.date}`}
                   className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-3 text-sm hover:bg-zinc-900"
                 >
                   <span className="text-zinc-300">{formatShortDate(day.date)}</span>

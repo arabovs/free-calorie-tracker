@@ -23,6 +23,7 @@ export type Food = {
 
 export type Entry = {
   id: string;
+  user_id: string;
   food_id: string | null;
   quantity: number;
   meal: Meal;
@@ -141,13 +142,14 @@ export const EMPTY_TOTALS: NutritionTotals = {
 };
 
 export type Profile = {
-  id: number;
+  user_id: string;
   height_cm: number | null;
   daily_calorie_goal: number;
 };
 
 export type WeightLog = {
   id: string;
+  user_id: string;
   logged_at: string;
   weight_kg: number;
 };
@@ -156,6 +158,7 @@ export type ExerciseType = "walk" | "low" | "medium" | "hard";
 
 export type ExerciseLog = {
   id: string;
+  user_id: string;
   logged_at: string;
   exercise_type: ExerciseType;
   calories_burned: number;
