@@ -10,7 +10,7 @@ import type { CustomEntryInput, Entry, ExerciseLog, ExerciseType, Food, Meal, Mo
 import { buildMonthSummary } from "@/lib/month-summary";
 import { getExerciseOption } from "@/lib/exercise";
 import { monthRange } from "@/lib/dates";
-import { ACTIVE_USER_COOKIE, getUser, isAppUserId } from "@/lib/users";
+import { ACTIVE_USER_COOKIE, getSeedUser, isAppUserId, slugifyUserId, SEED_USERS, type AppUser } from "@/lib/users";
 
 const REVALIDATE_PATHS = ["/", "/today", "/summary"];
 
@@ -23,6 +23,11 @@ function revalidateAll() {
 export async function setActiveUser(userId: string) {
   if (!isAppUserId(userId)) throw new Error("Unknown user");
 
+  const users = await listAppUsers();
+  if (!users.some((user) => user.id === userId)) {
+    throw new Error("Unknown user");
+  }
+
   const store = await cookies();
   store.set(ACTIVE_USER_COOKIE, userId, {
     path: "/",
@@ -31,6 +36,133 @@ export async function setActiveUser(userId: string) {
   });
 
   revalidateAll();
+}
+
+function mapAppUser(row: {
+  id: string;
+  name: string;
+  avatar_url: string;
+  daily_calorie_goal: number;
+}): AppUser {
+  return {
+    id: row.id,
+    name: row.name,
+    avatarSrc: row.avatar_url,
+    defaultCalorieGoal: Number(row.daily_calorie_goal) || 2500,
+  };
+}
+
+export async function listAppUsers(): Promise<AppUser[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("id, name, avatar_url, daily_calorie_goal")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    // Table may not exist yet — fall back to seeded users.
+    return [...SEED_USERS];
+  }
+
+  if (!data?.length) {
+    // Seed built-in users once.
+    await supabase.from("app_users").upsert(
+      SEED_USERS.map((user) => ({
+        id: user.id,
+        name: user.name,
+        avatar_url: user.avatarSrc,
+        daily_calorie_goal: user.defaultCalorieGoal,
+      })),
+      { onConflict: "id" },
+    );
+    return [...SEED_USERS];
+  }
+
+  return data.map(mapAppUser);
+}
+
+export async function getAppUser(userId: string): Promise<AppUser | null> {
+  const seed = getSeedUser(userId);
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("id, name, avatar_url, daily_calorie_goal")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error || !data) return seed;
+  return mapAppUser(data);
+}
+
+export async function createAppUser(formData: FormData): Promise<AppUser> {
+  const name = String(formData.get("name") ?? "").trim();
+  const photo = formData.get("photo");
+  const goalRaw = String(formData.get("calorieGoal") ?? "").trim();
+  const calorieGoal = goalRaw ? Number(goalRaw) : 2500;
+
+  if (!name) throw new Error("Name is required");
+  if (!(photo instanceof File) || photo.size === 0) {
+    throw new Error("Photo is required");
+  }
+  if (photo.size > 5 * 1024 * 1024) {
+    throw new Error("Photo must be under 5MB");
+  }
+  if (!Number.isFinite(calorieGoal) || calorieGoal < 800 || calorieGoal > 10000) {
+    throw new Error("Calorie goal must be between 800 and 10000");
+  }
+
+  let id = slugifyUserId(name);
+  const supabase = await createClient();
+
+  const { data: existing } = await supabase.from("app_users").select("id").eq("id", id).maybeSingle();
+  if (existing) {
+    id = `${id}-${Date.now().toString(36).slice(-4)}`;
+  }
+
+  const ext = photo.type === "image/png" ? "png" : photo.type === "image/webp" ? "webp" : "jpg";
+  const path = `${id}.${ext}`;
+  const bytes = new Uint8Array(await photo.arrayBuffer());
+
+  const { error: uploadError } = await supabase.storage.from("avatars").upload(path, bytes, {
+    contentType: photo.type || "image/jpeg",
+    upsert: true,
+  });
+
+  let avatarUrl: string;
+  if (uploadError) {
+    // Fallback if storage bucket isn't set up yet: store a small data URL.
+    if (photo.size > 900_000) {
+      throw new Error(
+        `Photo upload failed (${uploadError.message}). Run supabase/migration-app-users.sql, or use a smaller photo.`,
+      );
+    }
+    const base64 = Buffer.from(bytes).toString("base64");
+    avatarUrl = `data:${photo.type || "image/jpeg"};base64,${base64}`;
+  } else {
+    const { data: publicUrl } = supabase.storage.from("avatars").getPublicUrl(path);
+    avatarUrl = publicUrl.publicUrl;
+  }
+
+  const { error: insertError } = await supabase.from("app_users").insert({
+    id,
+    name,
+    avatar_url: avatarUrl,
+    daily_calorie_goal: calorieGoal,
+  });
+  if (insertError) throw new Error(insertError.message);
+
+  await supabase.from("profile").upsert(
+    { user_id: id, daily_calorie_goal: calorieGoal },
+    { onConflict: "user_id" },
+  );
+
+  revalidateAll();
+  return {
+    id,
+    name,
+    avatarSrc: avatarUrl,
+    defaultCalorieGoal: calorieGoal,
+  };
 }
 
 export async function getEntries(date: string): Promise<Entry[]> {
@@ -336,7 +468,7 @@ export async function getProfile(): Promise<Profile> {
     data ?? {
       user_id: userId,
       height_cm: null,
-      daily_calorie_goal: getUser(userId).defaultCalorieGoal,
+      daily_calorie_goal: (await getAppUser(userId))?.defaultCalorieGoal ?? getSeedUser(userId)?.defaultCalorieGoal ?? 2500,
     }
   );
 }

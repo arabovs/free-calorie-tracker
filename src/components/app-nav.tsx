@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 import { DateNav } from "@/components/date-nav";
-import { getUser, type AppUserId } from "@/lib/users";
+import type { AppUser } from "@/lib/users";
 
 const links = [
   { href: "/today", label: "Today" },
@@ -13,13 +13,13 @@ const links = [
 ];
 
 type Props = {
-  activeUserId: AppUserId;
+  activeUser: AppUser;
 };
 
-export function AppNav({ activeUserId }: Props) {
+export function AppNav({ activeUser }: Props) {
   const pathname = usePathname();
   const onToday = pathname === "/today";
-  const user = getUser(activeUserId);
+  const isData = activeUser.avatarSrc.startsWith("data:");
 
   return (
     <nav className="sticky top-0 z-30 border-b border-zinc-800 bg-black">
@@ -52,17 +52,26 @@ export function AppNav({ activeUserId }: Props) {
         <Link
           href="/"
           className="ml-auto shrink-0 overflow-hidden rounded-full ring-2 ring-emerald-500 ring-offset-2 ring-offset-black"
-          aria-label={`Signed in as ${user.name}. Switch user`}
-          title={`Switch user (${user.name})`}
+          aria-label={`Signed in as ${activeUser.name}. Switch user`}
+          title={`Switch user (${activeUser.name})`}
         >
-          <Image
-            src={user.avatarSrc}
-            alt={user.name}
-            width={36}
-            height={36}
-            className="h-9 w-9 object-cover"
-            priority
-          />
+          {isData ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={activeUser.avatarSrc}
+              alt={activeUser.name}
+              className="h-9 w-9 object-cover"
+            />
+          ) : (
+            <Image
+              src={activeUser.avatarSrc}
+              alt={activeUser.name}
+              width={36}
+              height={36}
+              className="h-9 w-9 object-cover"
+              priority
+            />
+          )}
         </Link>
       </div>
     </nav>

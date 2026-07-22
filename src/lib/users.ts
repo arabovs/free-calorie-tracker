@@ -1,6 +1,6 @@
 export const ACTIVE_USER_COOKIE = "active_user";
 
-export type AppUserId = "sim" | "babait";
+export type AppUserId = string;
 
 export type AppUser = {
   id: AppUserId;
@@ -9,7 +9,8 @@ export type AppUser = {
   defaultCalorieGoal: number;
 };
 
-export const USERS: readonly AppUser[] = [
+/** Built-in users used to seed the DB and as offline fallback. */
+export const SEED_USERS: readonly AppUser[] = [
   {
     id: "sim",
     name: "Sim",
@@ -24,12 +25,26 @@ export const USERS: readonly AppUser[] = [
   },
 ] as const;
 
+/** @deprecated Use SEED_USERS or listAppUsers() */
+export const USERS = SEED_USERS;
+
 export function isAppUserId(value: string): value is AppUserId {
-  return value === "sim" || value === "babait";
+  return typeof value === "string" && value.length > 0 && value.length <= 64;
 }
 
-export function getUser(id: AppUserId): AppUser {
-  const user = USERS.find((entry) => entry.id === id);
-  if (!user) throw new Error(`Unknown user: ${id}`);
-  return user;
+export function slugifyUserId(name: string): string {
+  const base = name
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+
+  return base || `user-${Date.now().toString(36)}`;
+}
+
+export function getSeedUser(id: AppUserId): AppUser | null {
+  return SEED_USERS.find((entry) => entry.id === id) ?? null;
 }

@@ -1,6 +1,7 @@
 import type { Food } from "./types";
 import { CATALOG_SEED_FOODS } from "./seed-foods-catalog";
 import { BULGARIAN_SEED_FOODS } from "./seed-foods-bulgarian";
+import { STAPLE_SEED_FOODS } from "./seed-foods-staples";
 
 type SeedFood = Omit<Food, "id">;
 
@@ -1794,6 +1795,7 @@ function dedupeFoods(foods: SeedFood[]): SeedFood[] {
 
 export const SEED_FOODS: SeedFood[] = dedupeFoods([
   ...BASE_SEED_FOODS,
+  ...STAPLE_SEED_FOODS,
   ...CATALOG_SEED_FOODS,
   ...BULGARIAN_SEED_FOODS,
 ]);

@@ -84,6 +84,19 @@ create table if not exists profile (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists app_users (
+  id text primary key,
+  name text not null,
+  avatar_url text not null,
+  daily_calorie_goal numeric not null default 2500,
+  created_at timestamptz not null default now()
+);
+
+insert into app_users (id, name, avatar_url, daily_calorie_goal) values
+  ('sim', 'Sim', '/avatars/sim-avatar.png', 2500),
+  ('babait', 'Бабаит', '/avatars/babait-avatar.png', 2000)
+on conflict (id) do nothing;
+
 insert into profile (user_id, daily_calorie_goal) values
   ('sim', 2500),
   ('babait', 2000)
@@ -115,17 +128,20 @@ create index if not exists exercise_logs_logged_at_idx on exercise_logs (logged_
 alter table foods enable row level security;
 alter table entries enable row level security;
 alter table profile enable row level security;
+alter table app_users enable row level security;
 alter table weight_logs enable row level security;
 alter table exercise_logs enable row level security;
 
 drop policy if exists "Allow all on foods" on foods;
 drop policy if exists "Allow all on entries" on entries;
 drop policy if exists "Allow all on profile" on profile;
+drop policy if exists "Allow all on app_users" on app_users;
 drop policy if exists "Allow all on weight_logs" on weight_logs;
 drop policy if exists "Allow all on exercise_logs" on exercise_logs;
 
 create policy "Allow all on foods" on foods for all using (true) with check (true);
 create policy "Allow all on entries" on entries for all using (true) with check (true);
 create policy "Allow all on profile" on profile for all using (true) with check (true);
+create policy "Allow all on app_users" on app_users for all using (true) with check (true);
 create policy "Allow all on weight_logs" on weight_logs for all using (true) with check (true);
 create policy "Allow all on exercise_logs" on exercise_logs for all using (true) with check (true);

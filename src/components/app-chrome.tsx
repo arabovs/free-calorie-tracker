@@ -2,10 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
-import type { AppUserId } from "@/lib/users";
+import type { AppUser } from "@/lib/users";
 
-export function AppChrome({ activeUserId }: { activeUserId: AppUserId | null }) {
+export function AppChrome({ activeUser }: { activeUser: AppUser | null }) {
   const pathname = usePathname();
-  if (!activeUserId || pathname === "/") return null;
-  return <AppNav activeUserId={activeUserId} />;
+  if (!activeUser || pathname === "/") return null;
+  return <AppNav activeUser={activeUser} />;
 }
