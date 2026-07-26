@@ -7,6 +7,10 @@ export type AppUser = {
   name: string;
   avatarSrc: string;
   defaultCalorieGoal: number;
+  /** True once the user has finished emoji passcode setup. */
+  hasPassword: boolean;
+  /** Fixed 9-emoji set; null until first login setup begins. */
+  emojiPalette: string[] | null;
 };
 
 /** Built-in users used to seed the DB and as offline fallback. */
@@ -16,12 +20,16 @@ export const SEED_USERS: readonly AppUser[] = [
     name: "Sim",
     avatarSrc: "/avatars/sim-avatar.png",
     defaultCalorieGoal: 2500,
+    hasPassword: false,
+    emojiPalette: null,
   },
   {
     id: "babait",
     name: "Бабаит",
     avatarSrc: "/avatars/babait-avatar.png",
     defaultCalorieGoal: 2000,
+    hasPassword: false,
+    emojiPalette: null,
   },
 ] as const;
 

@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { createAppUser, setActiveUser } from "@/app/actions";
+import { createAppUser } from "@/app/actions";
+import { EmojiPasscode } from "@/components/emoji-passcode";
 import type { AppUser } from "@/lib/users";
 
 type Props = {
@@ -26,7 +27,7 @@ export function UserSelect({ users: initialUsers }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [users, setUsers] = useState(initialUsers);
   const [pending, startTransition] = useTransition();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [authUser, setAuthUser] = useState<AppUser | null>(null);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [calorieGoal, setCalorieGoal] = useState("2500");
@@ -34,18 +35,10 @@ export function UserSelect({ users: initialUsers }: Props) {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function choose(userId: string) {
-    setSelected(userId);
+  function startAuth(user: AppUser) {
+    setCreating(false);
     setError(null);
-    startTransition(async () => {
-      try {
-        await setActiveUser(userId);
-        router.push("/today");
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not select user");
-        setSelected(null);
-      }
-    });
+    setAuthUser(user);
   }
 
   function onPhotoChange(file: File | null) {
@@ -76,8 +69,7 @@ export function UserSelect({ users: initialUsers }: Props) {
         setCalorieGoal("2500");
         onPhotoChange(null);
         if (fileRef.current) fileRef.current.value = "";
-        await setActiveUser(user.id);
-        router.push("/today");
+        setAuthUser(user);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not create user");
       }
@@ -93,12 +85,12 @@ export function UserSelect({ users: initialUsers }: Props) {
 
       <div className="grid grid-cols-2 gap-4">
         {users.map((user) => {
-          const isSelected = selected === user.id;
+          const isSelected = authUser?.id === user.id;
           return (
             <button
               key={user.id}
               type="button"
-              onClick={() => choose(user.id)}
+              onClick={() => startAuth(user)}
               disabled={pending}
               className={`group flex flex-col items-center gap-3 rounded-2xl border p-4 transition disabled:opacity-60 ${
                 isSelected
@@ -110,6 +102,9 @@ export function UserSelect({ users: initialUsers }: Props) {
                 <UserAvatar user={user} />
               </span>
               <span className="text-lg font-medium text-zinc-100">{user.name}</span>
+              <span className="text-[11px] text-zinc-600">
+                {user.hasPassword ? "Enter passcode" : "Set passcode"}
+              </span>
             </button>
           );
         })}
@@ -117,6 +112,7 @@ export function UserSelect({ users: initialUsers }: Props) {
         <button
           type="button"
           onClick={() => {
+            setAuthUser(null);
             setCreating(true);
             setError(null);
           }}
@@ -129,6 +125,15 @@ export function UserSelect({ users: initialUsers }: Props) {
           <span className="text-lg font-medium">Add user</span>
         </button>
       </div>
+
+      {authUser && (
+        <EmojiPasscode
+          key={authUser.id}
+          user={authUser}
+          onCancel={() => setAuthUser(null)}
+          onSuccess={() => router.push("/today")}
+        />
+      )}
 
       {creating && (
         <form
@@ -200,7 +205,7 @@ export function UserSelect({ users: initialUsers }: Props) {
               disabled={pending}
               className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-sm font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
             >
-              {pending ? "Creating…" : "Create & continue"}
+              {pending ? "Creating…" : "Create & set passcode"}
             </button>
           </div>
         </form>

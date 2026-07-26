@@ -11,8 +11,16 @@ import { buildMonthSummary } from "@/lib/month-summary";
 import { getExerciseOption } from "@/lib/exercise";
 import { monthRange } from "@/lib/dates";
 import { ACTIVE_USER_COOKIE, getSeedUser, isAppUserId, slugifyUserId, SEED_USERS, type AppUser } from "@/lib/users";
+import {
+  assertPasswordInPalette,
+  generateEmojiPalette,
+  hashEmojiPassword,
+  normalizeEmojiPassword,
+} from "@/lib/emoji-password";
 
 const REVALIDATE_PATHS = ["/", "/today", "/summary"];
+const APP_USER_SELECT =
+  "id, name, avatar_url, daily_calorie_goal, emoji_palette, emoji_password_hash";
 
 function revalidateAll() {
   for (const path of REVALIDATE_PATHS) {
@@ -20,21 +28,13 @@ function revalidateAll() {
   }
 }
 
-export async function setActiveUser(userId: string) {
-  if (!isAppUserId(userId)) throw new Error("Unknown user");
-
-  const users = await listAppUsers();
-  if (!users.some((user) => user.id === userId)) {
-    throw new Error("Unknown user");
-  }
-
+async function writeActiveUserCookie(userId: string) {
   const store = await cookies();
   store.set(ACTIVE_USER_COOKIE, userId, {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax",
   });
-
   revalidateAll();
 }
 
@@ -43,12 +43,17 @@ function mapAppUser(row: {
   name: string;
   avatar_url: string;
   daily_calorie_goal: number;
+  emoji_palette?: string[] | null;
+  emoji_password_hash?: string | null;
 }): AppUser {
+  const palette = Array.isArray(row.emoji_palette) ? row.emoji_palette : null;
   return {
     id: row.id,
     name: row.name,
     avatarSrc: row.avatar_url,
     defaultCalorieGoal: Number(row.daily_calorie_goal) || 2500,
+    hasPassword: Boolean(row.emoji_password_hash),
+    emojiPalette: palette && palette.length === 9 ? palette : null,
   };
 }
 
@@ -56,16 +61,15 @@ export async function listAppUsers(): Promise<AppUser[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("app_users")
-    .select("id, name, avatar_url, daily_calorie_goal")
+    .select(APP_USER_SELECT)
     .order("created_at", { ascending: true });
 
   if (error) {
-    // Table may not exist yet — fall back to seeded users.
+    // Table may not exist yet / columns missing — fall back to seeded users.
     return [...SEED_USERS];
   }
 
   if (!data?.length) {
-    // Seed built-in users once.
     await supabase.from("app_users").upsert(
       SEED_USERS.map((user) => ({
         id: user.id,
@@ -75,7 +79,11 @@ export async function listAppUsers(): Promise<AppUser[]> {
       })),
       { onConflict: "id" },
     );
-    return [...SEED_USERS];
+    const { data: seeded } = await supabase
+      .from("app_users")
+      .select(APP_USER_SELECT)
+      .order("created_at", { ascending: true });
+    return (seeded ?? []).map(mapAppUser);
   }
 
   return data.map(mapAppUser);
@@ -86,12 +94,108 @@ export async function getAppUser(userId: string): Promise<AppUser | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("app_users")
-    .select("id, name, avatar_url, daily_calorie_goal")
+    .select(APP_USER_SELECT)
     .eq("id", userId)
     .maybeSingle();
 
   if (error || !data) return seed;
   return mapAppUser(data);
+}
+
+/** Assign a fixed 9-emoji palette the first time a user starts passcode setup. */
+export async function ensureEmojiPalette(userId: string): Promise<string[]> {
+  if (!isAppUserId(userId)) throw new Error("Unknown user");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("id, emoji_palette")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Unknown user");
+
+  if (Array.isArray(data.emoji_palette) && data.emoji_palette.length === 9) {
+    return data.emoji_palette;
+  }
+
+  const palette = generateEmojiPalette();
+  const { error: updateError } = await supabase
+    .from("app_users")
+    .update({ emoji_palette: palette })
+    .eq("id", userId);
+  if (updateError) {
+    throw new Error(
+      updateError.message.includes("emoji_palette")
+        ? "Run supabase/migration-emoji-password.sql in Supabase first."
+        : updateError.message,
+    );
+  }
+
+  return palette;
+}
+
+/** First-time: save the confirmed 3-emoji passcode and sign in. */
+export async function setupEmojiPassword(userId: string, emojis: string[]) {
+  if (!isAppUserId(userId)) throw new Error("Unknown user");
+  const password = normalizeEmojiPassword(emojis);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("id, emoji_palette, emoji_password_hash")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Unknown user");
+  if (data.emoji_password_hash) throw new Error("Passcode already set");
+
+  const palette =
+    Array.isArray(data.emoji_palette) && data.emoji_palette.length === 9
+      ? data.emoji_palette
+      : await ensureEmojiPalette(userId);
+
+  assertPasswordInPalette(password, palette);
+
+  const hash = hashEmojiPassword(userId, password);
+  const { error: updateError } = await supabase
+    .from("app_users")
+    .update({ emoji_password_hash: hash, emoji_palette: palette })
+    .eq("id", userId);
+  if (updateError) throw new Error(updateError.message);
+
+  await writeActiveUserCookie(userId);
+}
+
+/** Returning user: verify 3-emoji passcode and sign in. */
+export async function loginWithEmojiPassword(userId: string, emojis: string[]) {
+  if (!isAppUserId(userId)) throw new Error("Unknown user");
+  const password = normalizeEmojiPassword(emojis);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("id, emoji_palette, emoji_password_hash")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Unknown user");
+  if (!data.emoji_password_hash) throw new Error("Passcode not set yet");
+  if (!Array.isArray(data.emoji_palette) || data.emoji_palette.length !== 9) {
+    throw new Error("Emoji set missing — run setup again");
+  }
+
+  assertPasswordInPalette(password, data.emoji_palette);
+
+  const hash = hashEmojiPassword(userId, password);
+  if (hash !== data.emoji_password_hash) {
+    throw new Error("Wrong passcode — try again");
+  }
+
+  await writeActiveUserCookie(userId);
 }
 
 export async function createAppUser(formData: FormData): Promise<AppUser> {
@@ -162,6 +266,8 @@ export async function createAppUser(formData: FormData): Promise<AppUser> {
     name,
     avatarSrc: avatarUrl,
     defaultCalorieGoal: calorieGoal,
+    hasPassword: false,
+    emojiPalette: null,
   };
 }
 
@@ -394,13 +500,30 @@ async function fetchAllFoodNames(): Promise<string[]> {
   return names;
 }
 
+const MICRO_FIELDS = [
+  "vitamin_a_mcg",
+  "vitamin_c_mg",
+  "vitamin_d_mcg",
+  "vitamin_b12_mcg",
+  "iron_mg",
+  "calcium_mg",
+  "potassium_mg",
+] as const;
+
+function hasAnyMicro(food: (typeof SEED_FOODS)[number]) {
+  return MICRO_FIELDS.some((field) => food[field] > 0);
+}
+
 export async function seedFoods() {
   const existing = await fetchAllFoodNames();
   const existingNames = new Set(existing.map((name) => name.toLowerCase()));
   const toInsert = SEED_FOODS.filter((food) => !existingNames.has(food.name.toLowerCase()));
+  const toRefresh = SEED_FOODS.filter(
+    (food) => existingNames.has(food.name.toLowerCase()) && hasAnyMicro(food),
+  );
 
-  if (toInsert.length === 0) {
-    return { seeded: false, added: 0, total: existing.length, missing: 0 };
+  if (toInsert.length === 0 && toRefresh.length === 0) {
+    return { seeded: false, added: 0, updated: 0, total: existing.length, missing: 0 };
   }
 
   const supabase = await createClient();
@@ -411,6 +534,21 @@ export async function seedFoods() {
     const { error } = await supabase.from("foods").insert(chunk);
     if (error) throw new Error(error.message);
     added += chunk.length;
+  }
+
+  let updated = 0;
+  const UPDATE_BATCH = 25;
+  for (let i = 0; i < toRefresh.length; i += UPDATE_BATCH) {
+    const chunk = toRefresh.slice(i, i + UPDATE_BATCH);
+    const results = await Promise.all(
+      chunk.map(async (food) => {
+        const micros = Object.fromEntries(MICRO_FIELDS.map((field) => [field, food[field]]));
+        const { error } = await supabase.from("foods").update(micros).ilike("name", food.name);
+        if (error) throw new Error(error.message);
+        return 1;
+      }),
+    );
+    updated += results.length;
   }
 
   revalidateAll();
@@ -425,6 +563,7 @@ export async function seedFoods() {
   return {
     seeded: true,
     added,
+    updated,
     total: after.length,
     missing,
   };

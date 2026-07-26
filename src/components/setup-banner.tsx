@@ -44,9 +44,12 @@ export function SetupBanner({ missing, seedCount, empty }: Props) {
     startTransition(async () => {
       try {
         const result = await seedFoods();
+        const parts: string[] = [];
+        if (result.added > 0) parts.push(`Added ${result.added}`);
+        if (result.updated > 0) parts.push(`updated micros on ${result.updated}`);
         setMessage(
-          result.added > 0
-            ? `Added ${result.added} foods (${result.total} total). Search again!`
+          parts.length > 0
+            ? `${parts.join(", ")} (${result.total} total). Search again!`
             : `All ${result.total} foods already loaded.`,
         );
         if (result.missing === 0) {

@@ -2,6 +2,7 @@ import type { Food } from "./types";
 import { CATALOG_SEED_FOODS } from "./seed-foods-catalog";
 import { BULGARIAN_SEED_FOODS } from "./seed-foods-bulgarian";
 import { STAPLE_SEED_FOODS } from "./seed-foods-staples";
+import { PRODUCE_SEED_FOODS } from "./seed-foods-produce";
 
 type SeedFood = Omit<Food, "id">;
 
@@ -1795,11 +1796,46 @@ function dedupeFoods(foods: SeedFood[]): SeedFood[] {
 
 export const SEED_FOODS: SeedFood[] = dedupeFoods([
   ...BASE_SEED_FOODS,
+  ...PRODUCE_SEED_FOODS,
   ...STAPLE_SEED_FOODS,
   ...CATALOG_SEED_FOODS,
   ...BULGARIAN_SEED_FOODS,
 ]);
 
-export function foodSummary(food: Pick<Food, "name" | "calories" | "protein_g" | "serving_size" | "serving_unit">) {
-  return `${food.calories} kcal · ${food.protein_g}g protein per ${food.serving_size} ${food.serving_unit}`;
+export function foodSummary(
+  food: Pick<Food, "calories" | "protein_g" | "carbs_g" | "fat_g" | "fiber_g" | "serving_size" | "serving_unit">,
+) {
+  return `${foodMacroLine(food)} · per ${food.serving_size} ${food.serving_unit}`;
+}
+
+export function foodMacroLine(food: Pick<Food, "calories" | "protein_g" | "carbs_g" | "fat_g" | "fiber_g">) {
+  return `${food.calories} kcal · ${food.protein_g}g protein · ${food.carbs_g}g carbs · ${food.fat_g}g fat · ${food.fiber_g}g fibre`;
+}
+
+type MicroSource = Pick<
+  Food,
+  | "vitamin_a_mcg"
+  | "vitamin_c_mg"
+  | "vitamin_d_mcg"
+  | "vitamin_b12_mcg"
+  | "iron_mg"
+  | "calcium_mg"
+  | "potassium_mg"
+  | "sodium_mg"
+  | "sugar_g"
+>;
+
+export function foodMicroLines(food: MicroSource): { label: string; value: string }[] {
+  const items: { label: string; value: string; raw: number }[] = [
+    { label: "Sugar", value: `${food.sugar_g}g`, raw: food.sugar_g },
+    { label: "Sodium", value: `${food.sodium_mg}mg`, raw: food.sodium_mg },
+    { label: "Vitamin A", value: `${food.vitamin_a_mcg} mcg`, raw: food.vitamin_a_mcg },
+    { label: "Vitamin C", value: `${food.vitamin_c_mg}mg`, raw: food.vitamin_c_mg },
+    { label: "Vitamin D", value: `${food.vitamin_d_mcg} mcg`, raw: food.vitamin_d_mcg },
+    { label: "Vitamin B12", value: `${food.vitamin_b12_mcg} mcg`, raw: food.vitamin_b12_mcg },
+    { label: "Iron", value: `${food.iron_mg}mg`, raw: food.iron_mg },
+    { label: "Calcium", value: `${food.calcium_mg}mg`, raw: food.calcium_mg },
+    { label: "Potassium", value: `${food.potassium_mg}mg`, raw: food.potassium_mg },
+  ];
+  return items.filter((item) => item.raw > 0).map(({ label, value }) => ({ label, value }));
 }

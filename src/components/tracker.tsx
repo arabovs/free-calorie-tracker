@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { addCustomEntry, addEntry, deleteEntry, resetDay, searchFoods } from "@/app/actions";
-import { foodSummary } from "@/lib/seed-foods";
+import { foodMacroLine, foodMicroLines, foodSummary } from "@/lib/seed-foods";
 import { entryLabel, entryNutrition, formatNum, scaleFood } from "@/lib/nutrition";
-import type { Entry, Food, Meal } from "@/lib/types";
+import type { Entry, Food, Meal, NutritionTotals } from "@/lib/types";
 import { EMPTY_TOTALS } from "@/lib/types";
 import { SupplementButtons } from "@/components/supplement-buttons";
 
@@ -12,6 +12,45 @@ const MEALS: Meal[] = ["breakfast", "lunch", "dinner", "snack"];
 
 type LogMode = "search" | "custom";
 type PanelTab = "add" | "log";
+
+function totalsMacroLine(n: NutritionTotals) {
+  return `${formatNum(n.calories)} kcal · ${formatNum(n.protein_g, 1)}g protein · ${formatNum(n.carbs_g, 1)}g carbs · ${formatNum(n.fat_g, 1)}g fat · ${formatNum(n.fiber_g, 1)}g fibre`;
+}
+
+function totalsMicroLines(n: NutritionTotals): { label: string; value: string }[] {
+  const items: { label: string; value: string; raw: number }[] = [
+    { label: "Sugar", value: `${formatNum(n.sugar_g, 1)}g`, raw: n.sugar_g },
+    { label: "Sodium", value: `${formatNum(n.sodium_mg, 0)}mg`, raw: n.sodium_mg },
+    { label: "Vitamin A", value: `${formatNum(n.vitamin_a_mcg, 0)} mcg`, raw: n.vitamin_a_mcg },
+    { label: "Vitamin C", value: `${formatNum(n.vitamin_c_mg, 1)}mg`, raw: n.vitamin_c_mg },
+    { label: "Vitamin D", value: `${formatNum(n.vitamin_d_mcg, 1)} mcg`, raw: n.vitamin_d_mcg },
+    { label: "Vitamin B12", value: `${formatNum(n.vitamin_b12_mcg, 1)} mcg`, raw: n.vitamin_b12_mcg },
+    { label: "Iron", value: `${formatNum(n.iron_mg, 1)}mg`, raw: n.iron_mg },
+    { label: "Calcium", value: `${formatNum(n.calcium_mg, 0)}mg`, raw: n.calcium_mg },
+    { label: "Potassium", value: `${formatNum(n.potassium_mg, 0)}mg`, raw: n.potassium_mg },
+    { label: "Magnesium", value: `${formatNum(n.magnesium_mg, 0)}mg`, raw: n.magnesium_mg },
+    { label: "Zinc", value: `${formatNum(n.zinc_mg, 1)}mg`, raw: n.zinc_mg },
+    { label: "Creatine", value: `${formatNum(n.creatine_g, 1)}g`, raw: n.creatine_g },
+    { label: "Omega-3", value: `${formatNum(n.omega3_g, 1)}g`, raw: n.omega3_g },
+  ];
+  return items.filter((item) => item.raw > 0).map(({ label, value }) => ({ label, value }));
+}
+
+function MicroList({ items }: { items: { label: string; value: string }[] }) {
+  if (items.length === 0) {
+    return <p className="mt-2 text-xs text-zinc-500">No micronutrient data for this item.</p>;
+  }
+  return (
+    <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-zinc-400">
+      {items.map((item) => (
+        <li key={item.label} className="flex justify-between gap-2">
+          <span>{item.label}</span>
+          <span className="tabular-nums text-zinc-300">{item.value}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 type Props = {
   date: string;
@@ -82,6 +121,7 @@ export function FoodLogPanel({ date, entries, hasActivity }: Props) {
   const [custom, setCustom] = useState(EMPTY_CUSTOM);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [showSelectedMicros, setShowSelectedMicros] = useState(false);
 
   const preview = useMemo(() => {
     if (!selected) return null;
@@ -109,6 +149,7 @@ export function FoodLogPanel({ date, entries, hasActivity }: Props) {
     setQuery(food.name);
     setResults([]);
     setQuantity(String(food.serving_size));
+    setShowSelectedMicros(false);
     setError(null);
   }
 
@@ -281,7 +322,7 @@ export function FoodLogPanel({ date, entries, hasActivity }: Props) {
             />
 
             {showDropdown && (
-              <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
+              <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-zinc-800 bg-zinc-900 py-1 shadow-xl">
                 {results.map((food) => (
                   <li key={food.id}>
                     <button
@@ -290,7 +331,12 @@ export function FoodLogPanel({ date, entries, hasActivity }: Props) {
                       className="w-full px-4 py-3 text-left hover:bg-zinc-800"
                     >
                       <span className="block font-medium text-zinc-100">{food.name}</span>
-                      <span className="block text-sm text-zinc-500">{foodSummary(food)}</span>
+                      <span className="mt-0.5 block text-xs leading-snug text-zinc-500">
+                        {foodMacroLine(food)}
+                      </span>
+                      <span className="mt-0.5 block text-[11px] text-zinc-600">
+                        per {food.serving_size} {food.serving_unit} · tap to select
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -301,12 +347,27 @@ export function FoodLogPanel({ date, entries, hasActivity }: Props) {
           {selected && (
             <div className="rounded-xl border border-emerald-900/50 bg-emerald-950/40 p-3 text-sm text-emerald-100">
               <p className="font-medium">{selected.name}</p>
-              <p className="text-emerald-400/80">{foodSummary(selected)}</p>
+              <p className="mt-0.5 text-xs text-emerald-400/80">{foodSummary(selected)}</p>
               {preview && (
                 <p className="mt-1 text-emerald-300/90">
-                  Your portion: {formatNum(preview.calories)} kcal · {formatNum(preview.protein_g, 1)}g protein ·{" "}
-                  {formatNum(preview.carbs_g, 1)}g carbs · {formatNum(preview.fat_g, 1)}g fat
+                  Your portion: {totalsMacroLine(preview)}
                 </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowSelectedMicros((v) => !v)}
+                className="mt-2 text-xs font-medium text-emerald-400 underline-offset-2 hover:underline"
+              >
+                {showSelectedMicros ? "Hide micronutrients" : "Show micronutrients"}
+              </button>
+              {showSelectedMicros && (
+                <MicroList
+                  items={
+                    preview
+                      ? totalsMicroLines(preview)
+                      : foodMicroLines(selected)
+                  }
+                />
               )}
             </div>
           )}
@@ -432,6 +493,7 @@ function EntryListContent({
 }) {
   const [pending, startTransition] = useTransition();
   const [confirmReset, setConfirmReset] = useState(false);
+  const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null);
 
   function handleDelete(id: string) {
     startTransition(async () => {
@@ -476,41 +538,57 @@ function EntryListContent({
 
         const isCustom = Boolean(entry.custom_name);
 
+        const microsOpen = expandedEntryId === entry.id;
+
         return (
-          <li key={entry.id} className="flex items-start gap-3 px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-medium text-zinc-100">{entryLabel(entry)}</p>
-                {isCustom && (
-                  <span className="rounded-full bg-violet-950 px-2 py-0.5 text-xs text-violet-300">Custom</span>
-                )}
-                <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-xs capitalize text-zinc-400">
-                  {entry.meal}
-                </span>
+          <li key={entry.id} className="px-4 py-3">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium text-zinc-100">{entryLabel(entry)}</p>
+                  {isCustom && (
+                    <span className="rounded-full bg-violet-950 px-2 py-0.5 text-xs text-violet-300">Custom</span>
+                  )}
+                  <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-xs capitalize text-zinc-400">
+                    {entry.meal}
+                  </span>
+                </div>
+                <p className="text-sm text-zinc-500">
+                  {isCustom ? (
+                    totalsMacroLine(nutrition)
+                  ) : (
+                    <>
+                      {entry.quantity} {entry.food?.serving_unit} · {totalsMacroLine(nutrition)}
+                    </>
+                  )}
+                </p>
               </div>
-              <p className="text-sm text-zinc-500">
-                {isCustom ? (
-                  <>
-                    {formatNum(nutrition.calories)} kcal · {formatNum(nutrition.protein_g, 1)}g protein ·{" "}
-                    {formatNum(nutrition.carbs_g, 1)}g carbs · {formatNum(nutrition.fat_g, 1)}g fat
-                  </>
-                ) : (
-                  <>
-                    {entry.quantity} {entry.food?.serving_unit} · {formatNum(nutrition.calories)} kcal ·{" "}
-                    {formatNum(nutrition.protein_g, 1)}g protein
-                  </>
-                )}
-              </p>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setExpandedEntryId((id) => (id === entry.id ? null : entry.id))}
+                  className={`rounded-lg px-2 py-1 text-xs font-medium ${
+                    microsOpen
+                      ? "bg-emerald-950 text-emerald-300"
+                      : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                  }`}
+                  aria-expanded={microsOpen}
+                  aria-label={microsOpen ? "Hide micronutrients" : "Show micronutrients"}
+                >
+                  Micros
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(entry.id)}
+                  disabled={pending}
+                  className="rounded-lg px-2 py-1 text-sm text-red-400 hover:bg-red-950 disabled:opacity-50"
+                  aria-label="Remove entry"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={() => handleDelete(entry.id)}
-              disabled={pending}
-              className="shrink-0 rounded-lg px-2 py-1 text-sm text-red-400 hover:bg-red-950 disabled:opacity-50"
-              aria-label="Remove entry"
-            >
-              ✕
-            </button>
+            {microsOpen && <MicroList items={totalsMicroLines(nutrition)} />}
           </li>
         );
       })}

@@ -92,6 +92,8 @@ create table if not exists app_users (
   name text not null,
   avatar_url text not null,
   daily_calorie_goal numeric not null default 2500,
+  emoji_palette text[],
+  emoji_password_hash text,
   created_at timestamptz not null default now()
 );
 

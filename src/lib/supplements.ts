@@ -1,6 +1,6 @@
 import type { CustomEntryInput } from "./types";
 
-export type SupplementId = "creatine" | "multivitamin" | "protein_shake" | "omega3";
+export type SupplementId = "creatine" | "multivitamin" | "whey_protein" | "protein_shake" | "omega3";
 
 export type SupplementPreset = {
   id: SupplementId;
@@ -81,6 +81,20 @@ export const CREATINE_DOSE: CustomEntryInput = {
   creatine_g: 5,
 };
 
+export const WHEY_PROTEIN: CustomEntryInput = {
+  ...emptyMacros,
+  name: "Whey protein (1 scoop)",
+  calories: 120,
+  protein_g: 24,
+  carbs_g: 3,
+  fat_g: 1.5,
+  sugar_g: 2,
+  sodium_mg: 130,
+  calcium_mg: 100,
+  potassium_mg: 150,
+  vitamin_b12_mcg: 0.5,
+};
+
 export const PROTEIN_SHAKE: CustomEntryInput = {
   ...emptyMacros,
   name: "Gainer shake (1 scoop)",
@@ -110,6 +124,12 @@ export const SUPPLEMENTS: SupplementPreset[] = [
     label: "+ 1 multivitamin",
     summary: "Full spectrum · ~5 kcal",
     preset: MULTIVITAMIN_TABLET,
+  },
+  {
+    id: "whey_protein",
+    label: "+ 1 whey scoop",
+    summary: "24g protein · 3g carbs · ~120 kcal",
+    preset: WHEY_PROTEIN,
   },
   {
     id: "protein_shake",

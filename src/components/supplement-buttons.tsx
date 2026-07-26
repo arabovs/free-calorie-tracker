@@ -44,6 +44,7 @@ function DropIcon({ className }: { className?: string }) {
 const ICONS: Record<SupplementId, typeof PillIcon> = {
   creatine: ScoopIcon,
   multivitamin: PillIcon,
+  whey_protein: ShakeIcon,
   protein_shake: ShakeIcon,
   omega3: DropIcon,
 };
@@ -51,6 +52,7 @@ const ICONS: Record<SupplementId, typeof PillIcon> = {
 const DISPLAY: Record<SupplementId, { label: string; amount: string }> = {
   creatine: { label: "Creatine", amount: "5g" },
   multivitamin: { label: "Multi", amount: "+5" },
+  whey_protein: { label: "Protein", amount: "1 scoop" },
   protein_shake: { label: "Gainer", amount: "1 scoop" },
   omega3: { label: "Omega-3", amount: "0.5g" },
 };
@@ -68,7 +70,7 @@ export function SupplementButtons({ date }: { date: string }) {
   }
 
   return (
-    <div className="grid grid-cols-4 gap-1">
+    <div className="grid grid-cols-5 gap-1">
       {SUPPLEMENTS.map((supplement) => {
         const Icon = ICONS[supplement.id];
         const display = DISPLAY[supplement.id];
