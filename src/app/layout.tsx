@@ -13,6 +13,11 @@ const geist = Geist({
 export const metadata: Metadata = {
   title: "Calorie Tracker",
   description: "Track daily calories, macros, and vitamins",
+  appleWebApp: {
+    capable: true,
+    title: "Calories",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
